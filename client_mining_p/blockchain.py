@@ -11,8 +11,9 @@ class Blockchain(object):
         self.chain = []
         self.current_transactions = []
         self.nodes = set()
-
-        self.new_block(previous_hash=1, proof=99)
+        # Create a variable to contain the last proof used
+        self.last_proof = 99
+        self.new_block(previous_hash=1, proof=self.last_proof)
 
     def new_block(self, proof, previous_hash=None):
         """
@@ -74,17 +75,6 @@ class Blockchain(object):
     def last_block(self):
         return self.chain[-1]
 
-    def proof_of_work(self, last_proof):
-        """
-        Simple Proof of Work Algorithm
-        Find a number p such that hash(last_block_string, p) contains 6 leading
-        zeroes
-        """
-        proof = 0
-        while not self.valid_proof(last_proof, proof):
-            proof += 1
-
-        return proof
 
     @staticmethod
     def valid_proof(last_proof, proof):
@@ -138,32 +128,61 @@ node_identifier = str(uuid4()).replace('-', '')
 blockchain = Blockchain()
 
 
-@app.route('/mine', methods=['GET'])
+@app.route('/last-proof', methods=['GET'])
+def last_proof():
+    response = {
+        'message': "Last Proof",
+        'last_proof': blockchain.last_proof
+    }
+    return jsonify(response), 201
+
+@app.route('/mine', methods=['POST'])
 def mine():
     # We run the proof of work algorithm to get the next proof...
-    proof = blockchain.proof_of_work(blockchain.last_block)
+    #proof = blockchain.proof_of_work(blockchain.last_block)
+    # Get the posted values
+    values = request.get_json()
+    # We need the proof and the recipient to give the coin to if the proof is correct.
+    required = ['proof', 'recipient']
+    # Check for missing values
+    if not all(k in values for k in required):
+        return 'Missing Values', 400
+        
+    # Check to see if the proof sent to us is valid.
+    # I have a feeling this section will need to also verify the chain when we get to that.
+    if blockchain.valid_proof(blockchain.last_proof, values['proof']):
+        
+        # We must receive a reward for finding the proof.
+        # TODO:
+        # The sender is "0" to signify that this node has mine a new coin
+        # The recipient is the current node, it did the mining!
+        # The amount is 1 coin as a reward for mining the next block
+        blockchain.new_transaction(0, node_identifier, 1)
 
-    # We must receive a reward for finding the proof.
-    # TODO:
-    # The sender is "0" to signify that this node has mine a new coin
-    # The recipient is the current node, it did the mining!
-    # The amount is 1 coin as a reward for mining the next block
-    blockchain.new_transaction(0, node_identifier, 1)
+        # Forge the new Block by adding it to the chain
+        # TODO
+        blockchain.last_proof = values['proof'] # Update the last proof with the latest valid proof
+        block = blockchain.new_block(values['proof'], blockchain.hash(blockchain.last_block))
 
-    # Forge the new Block by adding it to the chain
-    # TODO
-    block = blockchain.new_block(proof, blockchain.hash(blockchain.last_block))
-
-    # Send a response with the new block
-    response = {
-        'message': "New Block Forged",
-        'index': block['index'],
-        'transactions': block['transactions'],
-        'proof': block['proof'],
-        'previous_hash': block['previous_hash'],
-    }
-    return jsonify(response), 200
-
+        # Send a response with the new block
+        response = {
+            'message': "New Block Forged",
+            'index': block['index'],
+            'transactions': block['transactions'],
+            'proof': block['proof'],
+            'previous_hash': block['previous_hash'],
+        }
+        return jsonify(response), 200
+    else:
+        response = {
+            'message': "Invalid proof"
+        }
+        # Send a precondition failed response
+        '''
+        "The precondition given in one or more of the request-header fields evaluated to false when it was tested on the server...."
+        https://www.restapitutorial.com/httpstatuscodes.html
+        '''
+        return jsonify(response), 412
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():

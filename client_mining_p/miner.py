@@ -5,6 +5,17 @@ import sys
 
 
 # TODO: Implement functionality to search for a proof 
+def proof_of_work(self, last_proof):
+        """
+        Simple Proof of Work Algorithm
+        Find a number p such that hash(last_block_string, p) contains 6 leading
+        zeroes
+        """
+        proof = 0
+        while not self.valid_proof(last_proof, proof):
+            proof += 1
+
+        return proof
 
 
 if __name__ == '__main__':
