@@ -127,7 +127,6 @@ node_identifier = str(uuid4()).replace('-', '')
 # Instantiate the Blockchain
 blockchain = Blockchain()
 
-
 @app.route('/last-proof', methods=['GET'])
 def last_proof():
     response = {
@@ -143,7 +142,9 @@ def mine():
     # Get the posted values
     values = request.get_json()
     # We need the proof and the recipient to give the coin to if the proof is correct.
-    required = ['proof', 'recipient']
+    #required = ['proof', 'recipient']
+    # Changed this to just need the proof for the time being.
+    required = ["proof"]
     # Check for missing values
     if not all(k in values for k in required):
         return 'Missing Values', 400
